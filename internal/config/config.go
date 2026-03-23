@@ -15,6 +15,7 @@ type Config struct {
 	Agent      AgentConfig      `yaml:"agent"`
 	Agents     AgentsConfig     `yaml:"agents"`
 	Kanban     KanbanConfig     `yaml:"kanban"`
+	WebApp     WebAppConfig     `yaml:"webapp"`
 	SelfUpdate SelfUpdateConfig `yaml:"self_update"`
 	Log        LogConfig        `yaml:"log"`
 }
@@ -34,6 +35,12 @@ type AgentDefinition struct {
 type KanbanConfig struct {
 	Path    string   `yaml:"path"`
 	Columns []string `yaml:"columns"`
+}
+
+type WebAppConfig struct {
+	Enabled bool `yaml:"enabled"`
+	Port    int  `yaml:"port"`
+	Tunnel  bool `yaml:"tunnel"` // auto-start cloudflared tunnel
 }
 
 type SelfUpdateConfig struct {
@@ -105,6 +112,9 @@ func defaults() Config {
 		},
 		Kanban: KanbanConfig{
 			Path: "data/kanban",
+		},
+		WebApp: WebAppConfig{
+			Port: 8080,
 		},
 		SelfUpdate: SelfUpdateConfig{
 			Enabled:       false,

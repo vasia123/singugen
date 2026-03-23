@@ -151,22 +151,24 @@ Supervisor гарантирует восстановление при ошибк
 
 ---
 
-## Phase 7 — Telegram WebApp
+## Phase 7 — Telegram WebApp ✅
 
 **Цель:** Расширенный UI через Telegram Mini Apps.
 
-- [ ] WebApp сервер (`internal/webapp/`)
-  - Go HTTP server для SPA
-  - Telegram WebApp SDK интеграция (валидация initData)
-  - API endpoints для WebApp
-- [ ] Функционал:
-  - Kanban board (если выбран вариант B)
-  - Memory browser (просмотр/редактирование MD файлов агента)
-  - Agent dashboard (список агентов, статусы, логи)
-  - Settings (конфигурация агента через UI)
-- [ ] Self-evolving: агент может модифицировать frontend-код WebApp
+- [x] WebApp сервер (`internal/webapp/`)
+  - Go HTTP server (stdlib ServeMux, Go 1.22+ routing)
+  - Telegram initData HMAC-SHA256 валидация
+  - REST API: kanban, memory, agents endpoints
+- [x] API endpoints:
+  - POST /api/auth — валидация initData, session token
+  - GET/POST/DELETE /api/kanban — задачи
+  - GET/PUT /api/memory/{agent}/{name} — память агентов
+  - GET /api/agents — список агентов со статусами
+- [x] cloudflared quick tunnel — бесплатный HTTPS без конфигурации
+- [ ] Frontend SPA (агент может самостоятельно построить через self-modification)
+- [ ] Settings UI (конфигурация через WebApp)
 
-**Результат:** Богатый UI внутри Telegram для сложных взаимодействий.
+**Результат:** REST API для WebApp, cloudflared туннель для HTTPS доступа.
 
 ---
 
@@ -245,4 +247,5 @@ Supervisor гарантирует восстановление при ошибк
 | Phase 4 | 18 | ~700 | 0005 |
 | Phase 5 | 19 | ~600 | 0006 |
 | Phase 6 | 12 | ~500 | 0007 |
-| **Итого** | **137** | **~6400** | **7** |
+| Phase 7 | 7 | ~500 | 0008 |
+| **Итого** | **144** | **~6900** | **8** |

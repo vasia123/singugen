@@ -120,6 +120,18 @@ func (p *Pool) Get(name string) (*agent.Agent, bool) {
 	return entry.Agent, true
 }
 
+// GetMemory returns the memory store for a named agent.
+func (p *Pool) GetMemory(name string) (*memory.Store, bool) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
+	entry, ok := p.agents[name]
+	if !ok {
+		return nil, false
+	}
+	return entry.Memory, true
+}
+
 // Stop stops and removes an agent.
 func (p *Pool) Stop(name string) error {
 	p.mu.Lock()

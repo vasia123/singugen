@@ -1,0 +1,13 @@
+#!/bin/bash
+set -e
+
+echo "==> go vet ./..."
+go vet ./...
+
+echo "==> staticcheck ./..."
+staticcheck ./...
+
+echo "==> go test ./..."
+go test ./...
+
+echo "==> All checks passed"

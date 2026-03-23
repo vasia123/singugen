@@ -46,3 +46,10 @@ Production-grade. Every line, every commit, every decision — as if it ships to
 - Workarounds require TODO with explanation of the proper fix.
 - Use NOTE for non-obvious decisions or important context that isn't actionable.
 - Think before generating. Less code that works > more code that might.
+- Run `staticcheck ./...` before committing — zero warnings required.
+
+## Pre-commit Hook
+
+Install: `cp scripts/pre-commit .git/hooks/pre-commit`
+
+Runs `go vet`, `staticcheck`, `go test` before each commit.

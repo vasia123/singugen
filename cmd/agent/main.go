@@ -17,6 +17,7 @@ import (
 	"github.com/vasis/singugen/internal/selfupdate"
 	"github.com/vasis/singugen/internal/spawner"
 	tg "github.com/vasis/singugen/internal/telegram"
+	"github.com/vasis/singugen/internal/webapp"
 )
 
 func main() {
@@ -81,6 +82,31 @@ func main() {
 	if err := board.Init(); err != nil {
 		logger.Error("failed to init kanban board", "error", err)
 		os.Exit(1)
+	}
+
+	// Start WebApp server if enabled.
+	if cfg.WebApp.Enabled {
+		allowFrom := make(map[int64]bool, len(cfg.Telegram.AllowFrom))
+		for _, id := range cfg.Telegram.AllowFrom {
+			allowFrom[id] = true
+		}
+		srv := webapp.NewServer(webapp.Config{Port: cfg.WebApp.Port}, pool, board, cfg.Telegram.Token, allowFrom, logger)
+		go func() {
+			if err := srv.Start(ctx); err != nil {
+				logger.Error("webapp server failed", "error", err)
+			}
+		}()
+
+		if cfg.WebApp.Tunnel {
+			go func() {
+				url, err := webapp.StartTunnel(ctx, cfg.WebApp.Port, logger)
+				if err != nil {
+					logger.Warn("tunnel failed", "error", err)
+				} else {
+					logger.Info("webapp available", "url", url)
+				}
+			}()
+		}
 	}
 
 	// Start Telegram bot if token is configured.

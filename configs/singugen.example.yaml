@@ -40,6 +40,11 @@ agents:
 kanban:
   path: "data/kanban"              # kanban board directory
 
+webapp:
+  enabled: false                   # enable WebApp HTTP server
+  port: 8080                       # local port for API
+  tunnel: false                    # auto-start cloudflared tunnel for HTTPS
+
 self_update:
   enabled: false                   # enable /update command
   auto_push: false                 # push after commit
