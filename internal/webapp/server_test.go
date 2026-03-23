@@ -33,13 +33,12 @@ func testServer(t *testing.T) (*Server, string) {
 	// Start on random port.
 	go srv.Start(ctx)
 
-	// Wait for server to be ready.
-	for range 20 {
-		time.Sleep(50 * time.Millisecond)
-		addr := srv.httpServer.Addr
-		if addr != "" && addr != ":0" {
-			break
-		}
+	// Wait for actual address via channel.
+	var addr string
+	select {
+	case addr = <-srv.addrCh:
+	case <-time.After(5 * time.Second):
+		t.Fatal("server did not start in time")
 	}
 
 	t.Cleanup(func() {
@@ -47,7 +46,7 @@ func testServer(t *testing.T) (*Server, string) {
 		pool.ShutdownAll()
 	})
 
-	return srv, "http://" + srv.httpServer.Addr
+	return srv, "http://" + addr
 }
 
 func TestServer_AuthAndKanban(t *testing.T) {

@@ -31,6 +31,7 @@ type Server struct {
 	allowFrom  map[int64]bool
 	sessions   sync.Map // token → UserInfo
 	logger     *slog.Logger
+	addrCh     chan string // signals actual listen address after Start
 }
 
 // NewServer creates a WebApp server.
@@ -58,6 +59,7 @@ func NewServer(cfg Config, pool *spawner.Pool, board *kanban.Board, botToken str
 		Addr:    fmt.Sprintf(":%d", cfg.Port),
 		Handler: mux,
 	}
+	s.addrCh = make(chan string, 1)
 
 	return s
 }
@@ -69,8 +71,8 @@ func (s *Server) Start(ctx context.Context) error {
 		return fmt.Errorf("webapp: listen: %w", err)
 	}
 
-	// Store actual address (useful when port=0).
-	s.httpServer.Addr = ln.Addr().String()
+	addr := ln.Addr().String()
+	s.addrCh <- addr
 
 	go func() {
 		<-ctx.Done()
@@ -79,7 +81,7 @@ func (s *Server) Start(ctx context.Context) error {
 		s.httpServer.Shutdown(shutdownCtx)
 	}()
 
-	s.logger.Info("webapp server started", "addr", s.httpServer.Addr)
+	s.logger.Info("webapp server started", "addr", addr)
 	if err := s.httpServer.Serve(ln); err != http.ErrServerClosed {
 		return err
 	}
