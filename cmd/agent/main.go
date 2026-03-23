@@ -10,12 +10,11 @@ import (
 
 	"github.com/mymmrac/telego"
 
-	"github.com/vasis/singugen/internal/agent"
 	"github.com/vasis/singugen/internal/claude"
+	"github.com/vasis/singugen/internal/comms"
 	"github.com/vasis/singugen/internal/config"
-	"github.com/vasis/singugen/internal/dreaming"
-	"github.com/vasis/singugen/internal/memory"
 	"github.com/vasis/singugen/internal/selfupdate"
+	"github.com/vasis/singugen/internal/spawner"
 	tg "github.com/vasis/singugen/internal/telegram"
 )
 
@@ -29,49 +28,6 @@ func main() {
 	logger := setupLogger(cfg.Log)
 	logger.Info("agent starting")
 
-	// Initialize memory store.
-	memStore := memory.New(cfg.Agent.MemoryPath, logger)
-	if err := memStore.Init(); err != nil {
-		logger.Error("failed to initialize memory", "error", err)
-		os.Exit(1)
-	}
-
-	// Load memory for system prompt.
-	memoryPrompt, err := memStore.FormatForPrompt()
-	if err != nil {
-		logger.Warn("failed to load memory for prompt", "error", err)
-	}
-
-	launcher := claude.NewExecLauncher(cfg.Agent.ClaudeBinary)
-	sess := claude.NewSession(claude.SessionConfig{
-		Model:        cfg.Agent.ClaudeModel,
-		SystemPrompt: memoryPrompt,
-		Timeout:      cfg.Agent.ClaudeTimeout,
-		MaxRetries:   cfg.Agent.ClaudeMaxRetries,
-	}, launcher, logger)
-
-	// Create dreamer.
-	dreamer := dreaming.New(memStore, sess, logger)
-
-	// Configure agent with idle detection and shutdown hooks.
-	agentCfg := agent.Config{
-		QueueSize:   cfg.Agent.QueueSize,
-		IdleTimeout: cfg.Agent.IdleTimeout,
-	}
-	dreamFn := func(ctx context.Context) {
-		if err := dreamer.Dream(ctx); err != nil {
-			logger.Error("dreaming failed", "error", err)
-		}
-	}
-	if cfg.Agent.IdleTimeout > 0 {
-		agentCfg.OnIdle = dreamFn
-	}
-	if cfg.Agent.DreamOnShutdown {
-		agentCfg.OnShutdown = dreamFn
-	}
-
-	a := agent.New(agentCfg, sess, logger)
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -84,18 +40,30 @@ func main() {
 		cancel()
 	}()
 
-	// CLI test mode.
-	if msg := os.Getenv("SINGUGEN_AGENT_MESSAGE"); msg != "" {
-		runSingleMessage(ctx, sess, a, msg, logger)
-		return
-	}
+	// Create message bus and agent pool.
+	bus := comms.New()
+	launcher := claude.NewExecLauncher(cfg.Agent.ClaudeBinary)
+	pool := spawner.NewPool(launcher, bus, cfg.Agents.BaseDir, cfg.Agents.DefaultAgent, logger)
+	defer pool.ShutdownAll()
 
-	// Start Claude session.
-	if err := sess.Start(ctx); err != nil {
-		logger.Error("failed to start claude session", "error", err)
-		os.Exit(1)
+	// Spawn agents from config.
+	for name, def := range cfg.Agents.Definitions {
+		if !def.Enabled {
+			continue
+		}
+		model := def.Model
+		if model == "" {
+			model = cfg.Agent.ClaudeModel
+		}
+		if err := pool.Spawn(ctx, spawner.AgentConfig{
+			Name:        name,
+			Description: def.Description,
+			Model:       model,
+		}); err != nil {
+			logger.Error("failed to spawn agent", "name", name, "error", err)
+			os.Exit(1)
+		}
 	}
-	defer sess.Close()
 
 	// Create self-update pipeline if enabled.
 	var updater *selfupdate.Updater
@@ -104,24 +72,25 @@ func main() {
 		updater = selfupdate.NewUpdater(projectDir, selfupdate.ExecCommandRunner{}, logger)
 		updater.SetProtectedDirs(cfg.SelfUpdate.ProtectedDirs)
 		updater.SetAutoPush(cfg.SelfUpdate.AutoPush, cfg.SelfUpdate.PushBranch)
-		logger.Info("self-update enabled", "protected", cfg.SelfUpdate.ProtectedDirs)
+		logger.Info("self-update enabled")
 	}
 
 	// Start Telegram bot if token is configured.
 	if cfg.Telegram.Token != "" {
-		startTelegramBot(ctx, cfg, a, sess, updater, logger, cancel)
+		startTelegramBot(ctx, cfg, pool, updater, logger, cancel)
 	}
 
-	logger.Info("agent started", "memory_path", cfg.Agent.MemoryPath, "idle_timeout", cfg.Agent.IdleTimeout)
-	if err := a.Run(ctx); err != nil {
-		logger.Error("agent exited with error", "error", err)
-		os.Exit(1)
-	}
+	logger.Info("agent started",
+		"agents", len(cfg.Agents.Definitions),
+		"default", cfg.Agents.DefaultAgent,
+	)
 
+	// Block until context is cancelled.
+	<-ctx.Done()
 	logger.Info("agent stopped")
 }
 
-func startTelegramBot(ctx context.Context, cfg *config.Config, a *agent.Agent, sess *claude.Session, updater *selfupdate.Updater, logger *slog.Logger, cancel context.CancelFunc) {
+func startTelegramBot(ctx context.Context, cfg *config.Config, pool *spawner.Pool, updater *selfupdate.Updater, logger *slog.Logger, cancel context.CancelFunc) {
 	bot, err := telego.NewBot(cfg.Telegram.Token)
 	if err != nil {
 		logger.Error("failed to create telegram bot", "error", err)
@@ -129,7 +98,7 @@ func startTelegramBot(ctx context.Context, cfg *config.Config, a *agent.Agent, s
 	}
 
 	sender := tg.NewTelegoSender(ctx, bot)
-	tgBot := tg.NewBot(a, sess, sender, tg.BotConfig{
+	tgBot := tg.NewBot(pool, sender, tg.BotConfig{
 		AllowFrom: cfg.Telegram.AllowFrom,
 	}, logger, cancel)
 	if updater != nil {
@@ -159,47 +128,6 @@ func startTelegramBot(ctx context.Context, cfg *config.Config, a *agent.Agent, s
 
 		logger.Info("telegram bot stopped")
 	}()
-}
-
-func runSingleMessage(ctx context.Context, sess *claude.Session, a *agent.Agent, msg string, logger *slog.Logger) {
-	if err := sess.Start(ctx); err != nil {
-		logger.Error("failed to start claude session", "error", err)
-		os.Exit(1)
-	}
-	defer sess.Close()
-
-	go a.Run(ctx)
-
-	handler := &printHandler{logger: logger, done: make(chan struct{})}
-	if err := a.Submit(agent.Request{Message: msg, Handler: handler}); err != nil {
-		logger.Error("submit failed", "error", err)
-		os.Exit(1)
-	}
-
-	<-handler.done
-}
-
-type printHandler struct {
-	logger *slog.Logger
-	done   chan struct{}
-}
-
-func (h *printHandler) OnEvent(event claude.Event) {
-	if event.Type == claude.EventAssistant && event.Message != nil {
-		for _, block := range event.Message.Content {
-			if block.Type == "text" {
-				fmt.Print(block.Text)
-			}
-		}
-	}
-}
-
-func (h *printHandler) OnComplete(result string, err error) {
-	if err != nil {
-		h.logger.Error("error", "error", err)
-	}
-	fmt.Println()
-	close(h.done)
 }
 
 func setupLogger(cfg config.LogConfig) *slog.Logger {

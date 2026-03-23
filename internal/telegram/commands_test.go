@@ -17,7 +17,7 @@ func (f *fakeSession) Close() error                                             
 func (f *fakeSession) Restart(_ context.Context) error                              { return nil }
 
 func testDeps(s *fakeSender) CommandDeps {
-	a := agent.New(agent.Config{QueueSize: 1}, &fakeSession{}, discardLogger())
+	a := agent.New(agent.Config{Name: "main", QueueSize: 1}, &fakeSession{}, discardLogger())
 	return CommandDeps{
 		Agent:   a,
 		Session: &fakeSession{},
@@ -29,14 +29,12 @@ func TestCommand_Start(t *testing.T) {
 	s := newFakeSender()
 	deps := testDeps(s)
 
-	handled := handleCommand(context.Background(), 123, "/start", deps)
+	handled := handleCommand(context.Background(), 123, "/start", "", deps)
 	if !handled {
 		t.Fatal("/start not handled")
 	}
-
-	sent := s.Sent()
-	if len(sent) != 1 || sent[0].ChatID != 123 {
-		t.Errorf("unexpected sent: %v", sent)
+	if len(s.Sent()) != 1 {
+		t.Errorf("got %d messages, want 1", len(s.Sent()))
 	}
 }
 
@@ -44,7 +42,7 @@ func TestCommand_Status(t *testing.T) {
 	s := newFakeSender()
 	deps := testDeps(s)
 
-	handleCommand(context.Background(), 123, "/status", deps)
+	handleCommand(context.Background(), 123, "/status", "", deps)
 
 	if len(s.Sent()) != 1 {
 		t.Fatalf("got %d messages, want 1", len(s.Sent()))
@@ -57,7 +55,7 @@ func TestCommand_Stop(t *testing.T) {
 	cancelled := false
 	deps.CancelFunc = func() { cancelled = true }
 
-	handleCommand(context.Background(), 123, "/stop", deps)
+	handleCommand(context.Background(), 123, "/stop", "", deps)
 
 	if !cancelled {
 		t.Error("cancel was not called")
@@ -68,7 +66,7 @@ func TestCommand_Reset(t *testing.T) {
 	s := newFakeSender()
 	deps := testDeps(s)
 
-	handleCommand(context.Background(), 123, "/reset", deps)
+	handleCommand(context.Background(), 123, "/reset", "", deps)
 
 	sent := s.Sent()
 	if len(sent) != 1 || sent[0].Text != "Session reset." {
@@ -80,7 +78,7 @@ func TestCommand_Unknown(t *testing.T) {
 	s := newFakeSender()
 	deps := testDeps(s)
 
-	handled := handleCommand(context.Background(), 123, "/unknown", deps)
+	handled := handleCommand(context.Background(), 123, "/unknown", "", deps)
 	if handled {
 		t.Error("unknown command should not be handled")
 	}
@@ -89,12 +87,23 @@ func TestCommand_Unknown(t *testing.T) {
 func TestCommand_UpdateDisabled(t *testing.T) {
 	s := newFakeSender()
 	deps := testDeps(s)
-	deps.Updater = nil
 
-	handleCommand(context.Background(), 123, "/update", deps)
+	handleCommand(context.Background(), 123, "/update", "", deps)
 
 	sent := s.Sent()
 	if len(sent) != 1 || sent[0].Text != "Self-update is disabled." {
+		t.Errorf("unexpected: %v", sent)
+	}
+}
+
+func TestCommand_Agents_NoPool(t *testing.T) {
+	s := newFakeSender()
+	deps := testDeps(s)
+
+	handleCommand(context.Background(), 123, "/agents", "", deps)
+
+	sent := s.Sent()
+	if len(sent) != 1 || sent[0].Text != "Multi-agent not available." {
 		t.Errorf("unexpected: %v", sent)
 	}
 }

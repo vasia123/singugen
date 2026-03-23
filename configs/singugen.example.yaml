@@ -25,6 +25,18 @@ agent:
   dream_on_shutdown: true          # force dreaming before shutdown
   max_dream_duration: 5m           # max time for a single dream cycle
 
+agents:
+  base_dir: "data/agents"           # base directory for agent workspaces
+  default_agent: "main"             # default routing target
+  definitions:
+    main:
+      description: "Primary AI agent"
+      model: ""                     # empty = use agent.claude_model
+      enabled: true
+    # researcher:
+    #   description: "Web research specialist"
+    #   enabled: false              # spawn on-demand via /hire
+
 self_update:
   enabled: false                   # enable /update command
   auto_push: false                 # push after commit

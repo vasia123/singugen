@@ -33,6 +33,7 @@ type Request struct {
 
 // Config configures the agent.
 type Config struct {
+	Name        string                    // agent name for logs and routing
 	QueueSize   int
 	IdleTimeout time.Duration            // 0 = no idle detection
 	OnIdle      func(ctx context.Context) // called when idle timer fires
@@ -65,6 +66,11 @@ func New(cfg Config, session SessionStarter, logger *slog.Logger) *Agent {
 	}
 	a.state.Store(int32(StateStarting))
 	return a
+}
+
+// Name returns the agent's name.
+func (a *Agent) Name() string {
+	return a.cfg.Name
 }
 
 // State returns the current agent state.

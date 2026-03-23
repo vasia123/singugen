@@ -8,6 +8,7 @@ import (
 
 	"github.com/vasis/singugen/internal/agent"
 	"github.com/vasis/singugen/internal/selfupdate"
+	"github.com/vasis/singugen/internal/spawner"
 )
 
 // BotConfig holds bot configuration.
@@ -15,10 +16,9 @@ type BotConfig struct {
 	AllowFrom []int64
 }
 
-// Bot bridges Telegram updates to the agent.
+// Bot bridges Telegram updates to agents.
 type Bot struct {
-	agent     *agent.Agent
-	session   agent.SessionStarter
+	pool      *spawner.Pool
 	sender    Sender
 	updater   *selfupdate.Updater
 	allowFrom map[int64]bool
@@ -27,15 +27,14 @@ type Bot struct {
 }
 
 // NewBot creates a Bot.
-func NewBot(a *agent.Agent, session agent.SessionStarter, sender Sender, cfg BotConfig, logger *slog.Logger, cancel context.CancelFunc) *Bot {
+func NewBot(pool *spawner.Pool, sender Sender, cfg BotConfig, logger *slog.Logger, cancel context.CancelFunc) *Bot {
 	allow := make(map[int64]bool, len(cfg.AllowFrom))
 	for _, id := range cfg.AllowFrom {
 		allow[id] = true
 	}
 
 	return &Bot{
-		agent:     a,
-		session:   session,
+		pool:      pool,
 		sender:    sender,
 		allowFrom: allow,
 		logger:    logger,
@@ -62,23 +61,35 @@ func (b *Bot) HandleText(ctx context.Context, chatID int64, userID int64, text s
 
 	// Check for commands.
 	if strings.HasPrefix(text, "/") {
-		command := strings.SplitN(text, " ", 2)[0]
+		parts := strings.SplitN(text, " ", 2)
+		command := parts[0]
+		args := ""
+		if len(parts) > 1 {
+			args = parts[1]
+		}
 		deps := CommandDeps{
-			Agent:      b.agent,
-			Session:    b.session,
+			Pool:       b.pool,
 			Sender:     b.sender,
 			CancelFunc: b.cancel,
 			Updater:    b.updater,
 		}
-		if handleCommand(ctx, chatID, command, deps) {
+		if handleCommand(ctx, chatID, command, args, deps) {
 			return
 		}
 	}
 
-	// Submit to agent.
+	// Route to agent via @prefix or default.
+	agentName, cleanedMsg := spawner.ParseAgentPrefix(text)
+	if agentName == "" {
+		agentName = b.pool.DefaultName()
+	}
+	if cleanedMsg == "" {
+		cleanedMsg = text
+	}
+
 	handler := NewHandler(chatID, b.sender, b.logger)
-	if err := b.agent.Submit(agent.Request{Message: text, Handler: handler}); err != nil {
-		b.logger.Warn("queue full", "error", err)
-		b.sender.SendMessage(chatID, fmt.Sprintf("Busy, try again later: %v", err))
+	if err := b.pool.SubmitTo(agentName, agent.Request{Message: cleanedMsg, Handler: handler}); err != nil {
+		b.logger.Warn("submit failed", "agent", agentName, "error", err)
+		b.sender.SendMessage(chatID, fmt.Sprintf("Agent @%s: %v", agentName, err))
 	}
 }

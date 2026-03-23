@@ -13,8 +13,21 @@ type Config struct {
 	Telegram   TelegramConfig   `yaml:"telegram"`
 	Supervisor SupervisorConfig `yaml:"supervisor"`
 	Agent      AgentConfig      `yaml:"agent"`
+	Agents     AgentsConfig     `yaml:"agents"`
 	SelfUpdate SelfUpdateConfig `yaml:"self_update"`
 	Log        LogConfig        `yaml:"log"`
+}
+
+type AgentsConfig struct {
+	BaseDir      string                       `yaml:"base_dir"`
+	DefaultAgent string                       `yaml:"default_agent"`
+	Definitions  map[string]AgentDefinition   `yaml:"definitions"`
+}
+
+type AgentDefinition struct {
+	Description string `yaml:"description"`
+	Model       string `yaml:"model"`
+	Enabled     bool   `yaml:"enabled"`
 }
 
 type SelfUpdateConfig struct {
@@ -76,6 +89,13 @@ func defaults() Config {
 			IdleTimeout:      15 * time.Minute,
 			DreamOnShutdown:  true,
 			MaxDreamDuration: 5 * time.Minute,
+		},
+		Agents: AgentsConfig{
+			BaseDir:      "data/agents",
+			DefaultAgent: "main",
+			Definitions: map[string]AgentDefinition{
+				"main": {Description: "Primary AI agent", Enabled: true},
+			},
 		},
 		SelfUpdate: SelfUpdateConfig{
 			Enabled:       false,

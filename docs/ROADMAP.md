@@ -110,29 +110,27 @@ Supervisor гарантирует восстановление при ошибк
 
 ---
 
-## Phase 5 — Multi-Agent (команда)
+## Phase 5 — Multi-Agent (команда) ✅
 
 **Цель:** Главный агент создаёт и управляет sub-агентами.
 
-- [ ] Agent spawner (`internal/spawner/`)
-  - Создание нового агента: имя, описание, специализация, CLAUDE.md
-  - Запуск в отдельном Docker контейнере
-  - Выделенный workspace и memory directory
-- [ ] Inter-agent communication (`internal/comms/`)
-  - Механизм обмена сообщениями между агентами
-  - Вариант 1: embedded NATS (как в Praktor)
-  - Вариант 2: Unix sockets / named pipes (проще, меньше зависимостей)
-  - Вариант 3: файловый обмен через shared volume (самый простой)
-  - **Решение примем на этапе реализации (ADR)**
-- [ ] Команды главного агента
-  - "Наняты" (hire): создать специалиста с описанием роли
-  - "Делегировать" (delegate): отправить задачу конкретному агенту
-  - "Отчёт" (report): получить статус от sub-агента
-  - "Уволить" (fire): остановить и архивировать агента
-- [ ] Routing в Telegram: `@agent_name сообщение`
+- [x] Agent Pool (`internal/spawner/`)
+  - Создание агента: имя, описание, модель
+  - Горутины (не Docker) — проще, один бинарник (ADR-0006)
+  - Per-agent Session, Memory, workspace directory
+- [x] Inter-agent communication (`internal/comms/`)
+  - Go channels — Message Bus (Subscribe/Send/Broadcast)
+  - Type-safe, zero-copy, non-blocking
+- [x] Telegram команды
+  - `/hire <name> <description>` — создать специалиста
+  - `/fire <name>` — остановить агента
+  - `/agents` — список агентов с состояниями
+  - `/status` — статус всех агентов
+- [x] Routing в Telegram: `@agent_name сообщение`
+- [x] Главный агент ("main") — всегда существует, нельзя уволить
 
-**Результат:** Главный агент может создать, например, `@researcher` для
-поиска информации и `@coder` для написания кода, делегировать им задачи.
+**Результат:** Главный агент может создать `@researcher` для поиска
+информации и `@coder` для кода, делегировать через `@agent_name` prefix.
 
 ---
 
@@ -251,4 +249,5 @@ Supervisor гарантирует восстановление при ошибк
 | Phase 2 | 26 | ~1100 | 0003 |
 | Phase 3 | 30 | ~800 | 0004 |
 | Phase 4 | 18 | ~700 | 0005 |
-| **Итого** | **106** | **~5300** | **5** |
+| Phase 5 | 19 | ~600 | 0006 |
+| **Итого** | **125** | **~5900** | **6** |
