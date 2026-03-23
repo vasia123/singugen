@@ -29,8 +29,13 @@ type SupervisorConfig struct {
 }
 
 type AgentConfig struct {
-	WorkspacePath string `yaml:"workspace_path"`
-	DataPath      string `yaml:"data_path"`
+	WorkspacePath   string        `yaml:"workspace_path"`
+	DataPath        string        `yaml:"data_path"`
+	ClaudeBinary    string        `yaml:"claude_binary"`
+	ClaudeModel     string        `yaml:"claude_model"`
+	ClaudeTimeout   time.Duration `yaml:"claude_timeout"`
+	ClaudeMaxRetries int          `yaml:"claude_max_retries"`
+	QueueSize       int           `yaml:"queue_size"`
 }
 
 type LogConfig struct {
@@ -47,8 +52,12 @@ func defaults() Config {
 			ChildBinary:         "/usr/local/bin/singugen-agent",
 		},
 		Agent: AgentConfig{
-			WorkspacePath: "data/workspace",
-			DataPath:      "data",
+			WorkspacePath:    "data/workspace",
+			DataPath:         "data",
+			ClaudeBinary:     "claude",
+			ClaudeTimeout:    3 * time.Minute,
+			ClaudeMaxRetries: 10,
+			QueueSize:        64,
 		},
 		Log: LogConfig{
 			Level:  "info",

@@ -15,6 +15,11 @@ supervisor:
 agent:
   workspace_path: "data/workspace"
   data_path: "data"
+  claude_binary: "claude"           # path to claude CLI binary
+  claude_model: ""                  # empty = use default model
+  claude_timeout: 3m                # watchdog timeout per interaction
+  claude_max_retries: 10            # auto-restart attempts on crash
+  queue_size: 64                    # max pending messages
 
 log:
   level: "info"    # debug, info, warn, error
