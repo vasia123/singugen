@@ -14,6 +14,7 @@ type Config struct {
 	Supervisor SupervisorConfig `yaml:"supervisor"`
 	Agent      AgentConfig      `yaml:"agent"`
 	Agents     AgentsConfig     `yaml:"agents"`
+	Kanban     KanbanConfig     `yaml:"kanban"`
 	SelfUpdate SelfUpdateConfig `yaml:"self_update"`
 	Log        LogConfig        `yaml:"log"`
 }
@@ -28,6 +29,11 @@ type AgentDefinition struct {
 	Description string `yaml:"description"`
 	Model       string `yaml:"model"`
 	Enabled     bool   `yaml:"enabled"`
+}
+
+type KanbanConfig struct {
+	Path    string   `yaml:"path"`
+	Columns []string `yaml:"columns"`
 }
 
 type SelfUpdateConfig struct {
@@ -96,6 +102,9 @@ func defaults() Config {
 			Definitions: map[string]AgentDefinition{
 				"main": {Description: "Primary AI agent", Enabled: true},
 			},
+		},
+		Kanban: KanbanConfig{
+			Path: "data/kanban",
 		},
 		SelfUpdate: SelfUpdateConfig{
 			Enabled:       false,

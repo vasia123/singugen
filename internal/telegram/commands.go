@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/vasis/singugen/internal/agent"
+	"github.com/vasis/singugen/internal/kanban"
 	"github.com/vasis/singugen/internal/selfupdate"
 	"github.com/vasis/singugen/internal/spawner"
 )
@@ -15,6 +16,7 @@ type CommandDeps struct {
 	Agent      *agent.Agent
 	Session    agent.SessionStarter
 	Pool       *spawner.Pool
+	Board      *kanban.Board
 	Sender     Sender
 	CancelFunc context.CancelFunc
 	Updater    *selfupdate.Updater
@@ -116,6 +118,87 @@ func handleCommand(ctx context.Context, chatID int64, command, args string, deps
 		}
 		deps.Sender.SendMessage(chatID, sb.String())
 		return true
+	case "/task":
+		if deps.Board == nil {
+			deps.Sender.SendMessage(chatID, "Kanban board not available.")
+			return true
+		}
+		if args == "" {
+			deps.Sender.SendMessage(chatID, "Usage: /task <title> [@agent] [high|medium|low]")
+			return true
+		}
+		title, assignee, priority := parseTaskArgs(args)
+		task, err := deps.Board.Add(title, "", assignee, priority)
+		if err != nil {
+			deps.Sender.SendMessage(chatID, fmt.Sprintf("Failed: %v", err))
+		} else {
+			deps.Sender.SendMessage(chatID, fmt.Sprintf("Task [%s] created: %s", task.ID, task.Title))
+		}
+		return true
+	case "/tasks":
+		if deps.Board == nil {
+			deps.Sender.SendMessage(chatID, "Kanban board not available.")
+			return true
+		}
+		all, err := deps.Board.ListAll()
+		if err != nil {
+			deps.Sender.SendMessage(chatID, fmt.Sprintf("Error: %v", err))
+			return true
+		}
+		var sb strings.Builder
+		for _, col := range kanban.DefaultColumns {
+			tasks := all[col]
+			if len(tasks) == 0 {
+				continue
+			}
+			fmt.Fprintf(&sb, "*%s*\n", col)
+			for _, t := range tasks {
+				assignee := ""
+				if t.Assignee != "" {
+					assignee = " @" + t.Assignee
+				}
+				fmt.Fprintf(&sb, "  [%s] %s%s\n", t.ID, t.Title, assignee)
+			}
+			sb.WriteString("\n")
+		}
+		if sb.Len() == 0 {
+			deps.Sender.SendMessage(chatID, "No tasks.")
+		} else {
+			deps.Sender.SendMessage(chatID, sb.String())
+		}
+		return true
+	case "/move":
+		if deps.Board == nil {
+			deps.Sender.SendMessage(chatID, "Kanban board not available.")
+			return true
+		}
+		parts := strings.SplitN(strings.TrimSpace(args), " ", 2)
+		if len(parts) < 2 {
+			deps.Sender.SendMessage(chatID, "Usage: /move <id> <column>")
+			return true
+		}
+		if err := deps.Board.Move(parts[0], parts[1]); err != nil {
+			deps.Sender.SendMessage(chatID, fmt.Sprintf("Move failed: %v", err))
+		} else {
+			deps.Sender.SendMessage(chatID, fmt.Sprintf("Task [%s] moved to %s", parts[0], parts[1]))
+		}
+		return true
+	case "/done":
+		if deps.Board == nil {
+			deps.Sender.SendMessage(chatID, "Kanban board not available.")
+			return true
+		}
+		id := strings.TrimSpace(args)
+		if id == "" {
+			deps.Sender.SendMessage(chatID, "Usage: /done <id>")
+			return true
+		}
+		if err := deps.Board.Move(id, "done"); err != nil {
+			deps.Sender.SendMessage(chatID, fmt.Sprintf("Failed: %v", err))
+		} else {
+			deps.Sender.SendMessage(chatID, fmt.Sprintf("Task [%s] done!", id))
+		}
+		return true
 	case "/update":
 		if deps.Updater == nil {
 			deps.Sender.SendMessage(chatID, "Self-update is disabled.")
@@ -163,4 +246,23 @@ func parseHireArgs(args string) (name, description string) {
 		description = parts[1]
 	}
 	return name, description
+}
+
+func parseTaskArgs(args string) (title, assignee, priority string) {
+	words := strings.Fields(args)
+	var titleParts []string
+
+	for _, w := range words {
+		switch {
+		case strings.HasPrefix(w, "@"):
+			assignee = strings.TrimPrefix(w, "@")
+		case w == "high" || w == "medium" || w == "low":
+			priority = w
+		default:
+			titleParts = append(titleParts, w)
+		}
+	}
+
+	title = strings.Join(titleParts, " ")
+	return title, assignee, priority
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/vasis/singugen/internal/claude"
 	"github.com/vasis/singugen/internal/comms"
 	"github.com/vasis/singugen/internal/config"
+	"github.com/vasis/singugen/internal/kanban"
 	"github.com/vasis/singugen/internal/selfupdate"
 	"github.com/vasis/singugen/internal/spawner"
 	tg "github.com/vasis/singugen/internal/telegram"
@@ -75,9 +76,16 @@ func main() {
 		logger.Info("self-update enabled")
 	}
 
+	// Initialize kanban board.
+	board := kanban.NewBoard(cfg.Kanban.Path, logger)
+	if err := board.Init(); err != nil {
+		logger.Error("failed to init kanban board", "error", err)
+		os.Exit(1)
+	}
+
 	// Start Telegram bot if token is configured.
 	if cfg.Telegram.Token != "" {
-		startTelegramBot(ctx, cfg, pool, updater, logger, cancel)
+		startTelegramBot(ctx, cfg, pool, board, updater, logger, cancel)
 	}
 
 	logger.Info("agent started",
@@ -90,7 +98,7 @@ func main() {
 	logger.Info("agent stopped")
 }
 
-func startTelegramBot(ctx context.Context, cfg *config.Config, pool *spawner.Pool, updater *selfupdate.Updater, logger *slog.Logger, cancel context.CancelFunc) {
+func startTelegramBot(ctx context.Context, cfg *config.Config, pool *spawner.Pool, board *kanban.Board, updater *selfupdate.Updater, logger *slog.Logger, cancel context.CancelFunc) {
 	bot, err := telego.NewBot(cfg.Telegram.Token)
 	if err != nil {
 		logger.Error("failed to create telegram bot", "error", err)
@@ -103,6 +111,9 @@ func startTelegramBot(ctx context.Context, cfg *config.Config, pool *spawner.Poo
 	}, logger, cancel)
 	if updater != nil {
 		tgBot.SetUpdater(updater)
+	}
+	if board != nil {
+		tgBot.SetBoard(board)
 	}
 
 	go func() {

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/vasis/singugen/internal/agent"
+	"github.com/vasis/singugen/internal/kanban"
 	"github.com/vasis/singugen/internal/selfupdate"
 	"github.com/vasis/singugen/internal/spawner"
 )
@@ -20,6 +21,7 @@ type BotConfig struct {
 type Bot struct {
 	pool      *spawner.Pool
 	sender    Sender
+	board     *kanban.Board
 	updater   *selfupdate.Updater
 	allowFrom map[int64]bool
 	logger    *slog.Logger
@@ -47,6 +49,11 @@ func (b *Bot) SetUpdater(u *selfupdate.Updater) {
 	b.updater = u
 }
 
+// SetBoard configures the kanban board.
+func (b *Bot) SetBoard(board *kanban.Board) {
+	b.board = board
+}
+
 // HandleText processes an incoming text message from a user.
 func (b *Bot) HandleText(ctx context.Context, chatID int64, userID int64, text string) {
 	if !IsAuthorized(userID, b.allowFrom) {
@@ -69,6 +76,7 @@ func (b *Bot) HandleText(ctx context.Context, chatID int64, userID int64, text s
 		}
 		deps := CommandDeps{
 			Pool:       b.pool,
+			Board:      b.board,
 			Sender:     b.sender,
 			CancelFunc: b.cancel,
 			Updater:    b.updater,

@@ -37,6 +37,9 @@ agents:
     #   description: "Web research specialist"
     #   enabled: false              # spawn on-demand via /hire
 
+kanban:
+  path: "data/kanban"              # kanban board directory
+
 self_update:
   enabled: false                   # enable /update command
   auto_push: false                 # push after commit

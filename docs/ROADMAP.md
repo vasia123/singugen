@@ -134,26 +134,20 @@ Supervisor гарантирует восстановление при ошибк
 
 ---
 
-## Phase 6 — Kanban Board
+## Phase 6 — Kanban Board ✅
 
 **Цель:** Визуальное управление задачами.
 
-- [ ] Оценить: GitHub Projects API vs собственная реализация (ADR)
-- [ ] **Вариант A: GitHub Projects**
-  - Интеграция через GitHub API (`gh` CLI или REST)
-  - Агент создаёт/двигает карточки
-  - Пользователь видит доску на GitHub
-  - Плюс: готовая UI, минус: зависимость от GitHub
-- [ ] **Вариант B: Telegram WebApp**
-  - Kanban board как Mini App в Telegram
-  - Backend: Go HTTP сервер
-  - Frontend: lightweight SPA (можно Preact или vanilla)
-  - Drag & drop колонки: Backlog → In Progress → Review → Done
-  - Агент управляет через API, пользователь — через WebApp
-- [ ] Task model: title, description, assignee (agent), status, priority, due date
-- [ ] Хранение: SQLite или MD файлы (в стиле памяти)
+- [x] Выбран MD-файловый подход (ADR-0007): obsidian-like, без зависимостей
+- [x] Директории-колонки: backlog/ → in-progress/ → review/ → done/
+- [x] Task model: frontmatter YAML (title, assignee, priority, created, due) + MD body
+- [x] Board CRUD: Add, Get, Move, List, ListAll, Delete
+- [x] Prompt injection: assigned → агенту, unassigned → main, done исключены
+- [x] Telegram команды: `/task`, `/tasks`, `/move`, `/done`
+- [ ] GitHub Projects sync (опционально, будущая фаза)
+- [ ] Telegram WebApp UI для доски (Phase 7)
 
-**Результат:** Пользователь и агенты видят общую доску задач.
+**Результат:** Агенты видят свои задачи в промпте, пользователь управляет через Telegram.
 
 ---
 
@@ -250,4 +244,5 @@ Supervisor гарантирует восстановление при ошибк
 | Phase 3 | 30 | ~800 | 0004 |
 | Phase 4 | 18 | ~700 | 0005 |
 | Phase 5 | 19 | ~600 | 0006 |
-| **Итого** | **125** | **~5900** | **6** |
+| Phase 6 | 12 | ~500 | 0007 |
+| **Итого** | **137** | **~6400** | **7** |
