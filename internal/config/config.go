@@ -27,9 +27,29 @@ type AgentsConfig struct {
 }
 
 type AgentDefinition struct {
+	Description string            `yaml:"description"`
+	Model       string            `yaml:"model"`
+	Enabled     bool              `yaml:"enabled"`
+	Extensions  *ExtensionsDef    `yaml:"extensions"`
+}
+
+type ExtensionsDef struct {
+	MCPServers map[string]MCPServerDef `yaml:"mcp_servers"`
+	Skills     []SkillDef             `yaml:"skills"`
+}
+
+type MCPServerDef struct {
+	Type    string            `yaml:"type"`
+	Command string            `yaml:"command"`
+	Args    []string          `yaml:"args"`
+	URL     string            `yaml:"url"`
+	Env     map[string]string `yaml:"env"`
+}
+
+type SkillDef struct {
+	Name        string `yaml:"name"`
 	Description string `yaml:"description"`
-	Model       string `yaml:"model"`
-	Enabled     bool   `yaml:"enabled"`
+	Content     string `yaml:"content"`
 }
 
 type KanbanConfig struct {

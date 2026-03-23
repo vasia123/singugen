@@ -36,6 +36,16 @@ agents:
     # researcher:
     #   description: "Web research specialist"
     #   enabled: false              # spawn on-demand via /hire
+    #   extensions:
+    #     mcp_servers:
+    #       web-search:
+    #         type: "stdio"
+    #         command: "node"
+    #         args: ["/app/search.mjs"]
+    #     skills:
+    #       - name: "research"
+    #         description: "Web research methodology"
+    #         content: "When researching..."
 
 kanban:
   path: "data/kanban"              # kanban board directory

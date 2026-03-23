@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/vasis/singugen/internal/agent"
+	"github.com/vasis/singugen/internal/extensions"
 	"github.com/vasis/singugen/internal/kanban"
 	"github.com/vasis/singugen/internal/selfupdate"
 	"github.com/vasis/singugen/internal/spawner"
@@ -17,6 +18,7 @@ type CommandDeps struct {
 	Session    agent.SessionStarter
 	Pool       *spawner.Pool
 	Board      *kanban.Board
+	Extensions *extensions.Manager
 	Sender     Sender
 	CancelFunc context.CancelFunc
 	Updater    *selfupdate.Updater
@@ -198,6 +200,44 @@ func handleCommand(ctx context.Context, chatID int64, command, args string, deps
 		} else {
 			deps.Sender.SendMessage(chatID, fmt.Sprintf("Task [%s] done!", id))
 		}
+		return true
+	case "/mcp":
+		if deps.Extensions == nil {
+			deps.Sender.SendMessage(chatID, "Extensions not configured.")
+			return true
+		}
+		servers := deps.Extensions.ListMCPServers()
+		if len(servers) == 0 {
+			deps.Sender.SendMessage(chatID, "No MCP servers configured.")
+			return true
+		}
+		var sb strings.Builder
+		sb.WriteString("MCP Servers:\n")
+		for name, srv := range servers {
+			fmt.Fprintf(&sb, "  %s [%s] %s\n", name, srv.Type, srv.Command)
+		}
+		deps.Sender.SendMessage(chatID, sb.String())
+		return true
+	case "/skills":
+		if deps.Extensions == nil {
+			deps.Sender.SendMessage(chatID, "Extensions not configured.")
+			return true
+		}
+		skills, err := deps.Extensions.ListSkills()
+		if err != nil {
+			deps.Sender.SendMessage(chatID, fmt.Sprintf("Error: %v", err))
+			return true
+		}
+		if len(skills) == 0 {
+			deps.Sender.SendMessage(chatID, "No skills installed.")
+			return true
+		}
+		var sb strings.Builder
+		sb.WriteString("Skills:\n")
+		for _, s := range skills {
+			fmt.Fprintf(&sb, "  %s — %s\n", s.Name, s.Description)
+		}
+		deps.Sender.SendMessage(chatID, sb.String())
 		return true
 	case "/update":
 		if deps.Updater == nil {

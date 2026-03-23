@@ -11,10 +11,11 @@ import (
 
 // SessionConfig configures a Claude Code session.
 type SessionConfig struct {
-	Model        string
-	SystemPrompt string
-	Timeout      time.Duration // watchdog per-interaction, default 3min
-	MaxRetries   int           // auto-restart attempts, default 10
+	Model         string
+	SystemPrompt  string
+	MCPConfigPath string        // path to MCP config JSON for --mcp-config
+	Timeout       time.Duration // watchdog per-interaction, default 3min
+	MaxRetries    int           // auto-restart attempts, default 10
 }
 
 func (c *SessionConfig) setDefaults() {
@@ -209,6 +210,9 @@ func (s *Session) buildArgs() []string {
 	}
 	if s.cfg.SystemPrompt != "" {
 		args = append(args, "--system-prompt", s.cfg.SystemPrompt)
+	}
+	if s.cfg.MCPConfigPath != "" {
+		args = append(args, "--mcp-config", s.cfg.MCPConfigPath)
 	}
 	if s.sessionID != "" {
 		args = append(args, "--resume", s.sessionID)

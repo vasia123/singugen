@@ -172,29 +172,24 @@ Supervisor гарантирует восстановление при ошибк
 
 ---
 
-## Phase 8 — Skills & MCP Ecosystem
+## Phase 8 — Skills & MCP Ecosystem ✅ (MVP)
 
 **Цель:** Агент расширяет свои возможности через внешние инструменты.
 
-- [ ] Skill manager (`internal/skills/`)
-  - Установка из реестра (claude skill marketplace, npm, GitHub)
-  - Анализ безопасности перед установкой:
-    - Статический анализ кода
-    - Проверка permissions/scopes
-    - Sandboxing при первом запуске
-    - Approval пользователя для dangerous permissions
-  - Архивирование неиспользуемых (dreaming phase)
-- [ ] MCP manager (`internal/mcp/`)
-  - Динамическое подключение/отключение MCP серверов
-  - Мониторинг контекстного загрязнения (context bloat)
-  - Auto-disable при превышении порога
-- [ ] Security pipeline
-  - Каждый внешний скилл/MCP проходит через анализ
-  - Whitelist/blacklist
-  - Изоляция через отдельный container/namespace
+- [x] Extensions manager (`internal/extensions/`)
+  - MCP config JSON generation → `--mcp-config` для Claude CLI
+  - Skills как директории с SKILL.md (install/list/disable/enable/archive)
+  - Per-agent extensions в конфиге (ADR-0009)
+- [x] Telegram команды: `/mcp`, `/skills`
+- [x] Session integration: `--mcp-config` flag
+- [ ] Marketplace integration (claude plugin marketplace)
+- [ ] Security pipeline (статический анализ, sandboxing)
+  - [ ] Whitelist/blacklist
+  - [ ] Approval пользователя для dangerous permissions
+- [ ] Context bloat monitoring (auto-disable при превышении)
+- [ ] Dreaming: автоматическое отключение неиспользуемых
 
-**Результат:** Агент самостоятельно находит и устанавливает нужные инструменты,
-но с контролем безопасности.
+**Результат:** Базовая инфраструктура для MCP/skills. Security pipeline — будущая фаза.
 
 ---
 
@@ -248,4 +243,5 @@ Supervisor гарантирует восстановление при ошибк
 | Phase 5 | 19 | ~600 | 0006 |
 | Phase 6 | 12 | ~500 | 0007 |
 | Phase 7 | 7 | ~500 | 0008 |
-| **Итого** | **144** | **~6900** | **8** |
+| Phase 8 | 8 | ~500 | 0009 |
+| **Итого** | **152** | **~7400** | **9** |
