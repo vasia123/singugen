@@ -3,8 +3,6 @@ package telegram
 import (
 	"log/slog"
 	"sync"
-
-	"github.com/vasis/singugen/internal/claude"
 )
 
 type sentMsg struct {
@@ -81,11 +79,6 @@ func (f *fakeSender) Deleted() []deletedMsg {
 	copy(out, f.deleted)
 	return out
 }
-
-type noopHandler struct{}
-
-func (noopHandler) OnEvent(_ claude.Event)           {}
-func (noopHandler) OnComplete(_ string, _ error) {}
 
 func discardLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(nopWriter{}, nil))
