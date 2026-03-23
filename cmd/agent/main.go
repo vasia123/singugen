@@ -13,6 +13,8 @@ import (
 	"github.com/vasis/singugen/internal/agent"
 	"github.com/vasis/singugen/internal/claude"
 	"github.com/vasis/singugen/internal/config"
+	"github.com/vasis/singugen/internal/dreaming"
+	"github.com/vasis/singugen/internal/memory"
 	tg "github.com/vasis/singugen/internal/telegram"
 )
 
@@ -26,16 +28,48 @@ func main() {
 	logger := setupLogger(cfg.Log)
 	logger.Info("agent starting")
 
+	// Initialize memory store.
+	memStore := memory.New(cfg.Agent.MemoryPath, logger)
+	if err := memStore.Init(); err != nil {
+		logger.Error("failed to initialize memory", "error", err)
+		os.Exit(1)
+	}
+
+	// Load memory for system prompt.
+	memoryPrompt, err := memStore.FormatForPrompt()
+	if err != nil {
+		logger.Warn("failed to load memory for prompt", "error", err)
+	}
+
 	launcher := claude.NewExecLauncher(cfg.Agent.ClaudeBinary)
 	sess := claude.NewSession(claude.SessionConfig{
-		Model:      cfg.Agent.ClaudeModel,
-		Timeout:    cfg.Agent.ClaudeTimeout,
-		MaxRetries: cfg.Agent.ClaudeMaxRetries,
+		Model:        cfg.Agent.ClaudeModel,
+		SystemPrompt: memoryPrompt,
+		Timeout:      cfg.Agent.ClaudeTimeout,
+		MaxRetries:   cfg.Agent.ClaudeMaxRetries,
 	}, launcher, logger)
 
-	a := agent.New(agent.Config{
-		QueueSize: cfg.Agent.QueueSize,
-	}, sess, logger)
+	// Create dreamer.
+	dreamer := dreaming.New(memStore, sess, logger)
+
+	// Configure agent with idle detection and shutdown hooks.
+	agentCfg := agent.Config{
+		QueueSize:   cfg.Agent.QueueSize,
+		IdleTimeout: cfg.Agent.IdleTimeout,
+	}
+	dreamFn := func(ctx context.Context) {
+		if err := dreamer.Dream(ctx); err != nil {
+			logger.Error("dreaming failed", "error", err)
+		}
+	}
+	if cfg.Agent.IdleTimeout > 0 {
+		agentCfg.OnIdle = dreamFn
+	}
+	if cfg.Agent.DreamOnShutdown {
+		agentCfg.OnShutdown = dreamFn
+	}
+
+	a := agent.New(agentCfg, sess, logger)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -67,7 +101,7 @@ func main() {
 		startTelegramBot(ctx, cfg, a, sess, logger, cancel)
 	}
 
-	logger.Info("agent started, waiting for messages")
+	logger.Info("agent started", "memory_path", cfg.Agent.MemoryPath, "idle_timeout", cfg.Agent.IdleTimeout)
 	if err := a.Run(ctx); err != nil {
 		logger.Error("agent exited with error", "error", err)
 		os.Exit(1)
@@ -88,7 +122,6 @@ func startTelegramBot(ctx context.Context, cfg *config.Config, a *agent.Agent, s
 		AllowFrom: cfg.Telegram.AllowFrom,
 	}, logger, cancel)
 
-	// Run long-polling in background.
 	go func() {
 		updates, err := bot.UpdatesViaLongPolling(ctx, nil)
 		if err != nil {

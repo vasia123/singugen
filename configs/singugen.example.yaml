@@ -20,6 +20,10 @@ agent:
   claude_timeout: 3m                # watchdog timeout per interaction
   claude_max_retries: 10            # auto-restart attempts on crash
   queue_size: 64                    # max pending messages
+  memory_path: "data/memory"       # per-agent markdown memory files
+  idle_timeout: 15m                # dreaming triggers after this idle time
+  dream_on_shutdown: true          # force dreaming before shutdown
+  max_dream_duration: 5m           # max time for a single dream cycle
 
 log:
   level: "info"    # debug, info, warn, error

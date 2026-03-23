@@ -34,8 +34,12 @@ type AgentConfig struct {
 	ClaudeBinary    string        `yaml:"claude_binary"`
 	ClaudeModel     string        `yaml:"claude_model"`
 	ClaudeTimeout   time.Duration `yaml:"claude_timeout"`
-	ClaudeMaxRetries int          `yaml:"claude_max_retries"`
-	QueueSize       int           `yaml:"queue_size"`
+	ClaudeMaxRetries int           `yaml:"claude_max_retries"`
+	QueueSize        int           `yaml:"queue_size"`
+	MemoryPath       string        `yaml:"memory_path"`
+	IdleTimeout      time.Duration `yaml:"idle_timeout"`
+	DreamOnShutdown  bool          `yaml:"dream_on_shutdown"`
+	MaxDreamDuration time.Duration `yaml:"max_dream_duration"`
 }
 
 type LogConfig struct {
@@ -58,6 +62,10 @@ func defaults() Config {
 			ClaudeTimeout:    3 * time.Minute,
 			ClaudeMaxRetries: 10,
 			QueueSize:        64,
+			MemoryPath:       "data/memory",
+			IdleTimeout:      15 * time.Minute,
+			DreamOnShutdown:  true,
+			MaxDreamDuration: 5 * time.Minute,
 		},
 		Log: LogConfig{
 			Level:  "info",

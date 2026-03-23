@@ -10,78 +10,78 @@
 
 ---
 
-## Phase 0 — Foundation (скелет проекта)
+## Phase 0 — Foundation (скелет проекта) ✅
 
 **Цель:** Go-проект собирается, запускается, есть базовая структура.
 
-- [ ] `go mod init`, структура каталогов (`cmd/`, `internal/`, `configs/`, `docs/`)
-- [ ] Supervisor процесс (`cmd/singugen/main.go`)
+- [x] `go mod init`, структура каталогов (`cmd/`, `internal/`, `configs/`, `docs/`)
+- [x] Supervisor процесс (`cmd/singugen/main.go`)
   - Запускает child-процесс (основной агент)
   - Ловит сигналы, перезапускает child после self-update
   - Healthcheck child-процесса
-- [ ] Конфиг (YAML): токен Telegram, пути, параметры агента
-- [ ] Логирование (`slog` из stdlib)
-- [ ] Dockerfile (multi-stage, CGO_ENABLED=0, ARM-совместимый)
-- [ ] docker-compose.yml (volumes для данных и воркспейсов)
-- [ ] CI: `go vet`, `staticcheck`, `go test` на каждый коммит
+- [x] Конфиг (YAML): токен Telegram, пути, параметры агента
+- [x] Логирование (`slog` из stdlib)
+- [x] Dockerfile (multi-stage, CGO_ENABLED=0, ARM-совместимый)
+- [x] docker-compose.yml (volumes для данных и воркспейсов)
+- [x] CI: `go vet`, `staticcheck`, `go test` на каждый коммит
 
 **Результат:** `docker compose up` запускает supervisor, supervisor запускает
 пустой child, child завершается — supervisor перезапускает.
 
 ---
 
-## Phase 1 — Claude Code Integration (MVP ядро)
+## Phase 1 — Claude Code Integration (MVP ядро) ✅
 
 **Цель:** Получить сообщение → передать Claude Code → получить ответ.
 
-- [ ] Claude Code launcher (`internal/claude/`)
+- [x] Claude Code launcher (`internal/claude/`)
   - Запуск `claude` бинарника в `--input-format stream-json --output-format stream-json`
   - Парсинг stream-json протокола (messages, tool_use, result)
   - Управление сессией (session ID, resume)
   - Graceful shutdown
-- [ ] Agent runtime (`internal/agent/`)
+- [x] Agent runtime (`internal/agent/`)
   - Lifecycle: start → ready → processing → idle → dreaming → stopped
   - Message queue (входящие сообщения пока агент занят)
   - Системный промпт из CLAUDE.md файлов
-- [ ] Тесты: mock Claude Code binary для unit-тестов
+- [x] Тесты: mock Claude Code binary для unit-тестов (ProcessLauncher + FakeLauncher)
 
 **Результат:** Программно отправить текст агенту, получить ответ от Claude Code.
 
 ---
 
-## Phase 2 — Telegram Bot
+## Phase 2 — Telegram Bot ✅
 
 **Цель:** Пользователь общается с агентом через Telegram.
 
-- [ ] Telegram bot (`internal/telegram/`)
+- [x] Telegram bot (`internal/telegram/`)
   - Long-polling (не webhooks — проще для старта)
   - Получение текстовых сообщений
   - Отправка ответов (chunking для >4096 символов)
-  - Статус-сообщения ("думаю...", "пишу код...")
-  - Поддержка файлов (фото, документы, голос — позже)
-- [ ] Команды: `/start`, `/status`, `/stop`, `/reset`
-- [ ] Авторизация: whitelist Telegram user IDs из конфига
-- [ ] Graceful: при остановке агента — уведомление в чат
+  - Статус-сообщения ("Thinking...", "Reading file...", "Writing code...")
+  - [ ] Поддержка файлов (фото, документы, голос — позже)
+- [x] Команды: `/start`, `/status`, `/stop`, `/reset`
+- [x] Авторизация: whitelist Telegram user IDs из конфига
+- [x] Sender interface для тестируемости без Telegram API
 
 **Результат:** Полноценный диалог с агентом через Telegram бота.
 
 ---
 
-## Phase 3 — Memory (Obsidian-like)
+## Phase 3 — Memory (Obsidian-like) ✅
 
 **Цель:** Агент помнит контекст между сессиями.
 
-- [ ] Memory store (`internal/memory/`)
+- [x] Memory store (`internal/memory/`)
   - Per-agent директория с MD файлами
   - Категории: `user.md`, `projects.md`, `skills.md`, `journal.md`, `team.md`
   - Загрузка в системный промпт при старте сессии
-  - API для агента: save/update/delete memory entries
-- [ ] Dreaming phase (`internal/dreaming/`)
-  - Триггер: idle timeout (агент не получал сообщений N минут)
-  - Реорганизация памяти: удаление неактуального, структурирование
-  - Отключение неиспользуемых MCP/skills, перенос в архив
-  - Лог dreaming-сессии для прозрачности
-- [ ] Хук на остановку: принудительный dreaming перед shutdown
+  - API: Save/Load/Delete/LoadAll/FormatForPrompt
+- [x] Dreaming phase (`internal/dreaming/`)
+  - Триггер: idle timeout (StateReady N минут, НЕ во время processing)
+  - Реорганизация памяти через Claude с протоколом <<<MEMORY_UPDATE>>>
+  - [ ] Отключение неиспользуемых MCP/skills, перенос в архив (Phase 8)
+- [x] Хук на остановку: принудительный dreaming перед shutdown
+- [x] Idle detection: timer считает только Ready-время, останавливается при Processing
 
 **Результат:** Агент помнит пользователя, свои решения, контекст проектов.
 
@@ -232,12 +232,22 @@ Supervisor гарантирует восстановление при ошибк
 
 | Компонент | Библиотека | Обоснование |
 |-----------|-----------|-------------|
-| Telegram Bot | `go-telegram/bot` или `telego` | Нативный Go, хорошая поддержка |
-| Config | `gopkg.in/yaml.v3` | Стандарт де-факто |
+| Telegram Bot | `mymmrac/telego` v1.7.0 | Нативный Go, хорошая поддержка ✅ |
+| Config | `gopkg.in/yaml.v3` | Стандарт де-факто ✅ |
 | SQLite | `modernc.org/sqlite` | Pure Go, без CGO |
-| Logging | `log/slog` (stdlib) | Достаточно, нет внешних зависимостей |
-| Testing | `testing` + `testify` | Стандарт |
+| Logging | `log/slog` (stdlib) | Достаточно, нет внешних зависимостей ✅ |
+| Testing | `testing` (stdlib) | Без testify, достаточно stdlib ✅ |
 
 ---
 
 *Последнее обновление: 2026-03-23*
+
+### Статистика
+
+| Фаза | Тесты | Строки | ADR |
+|------|-------|--------|-----|
+| Phase 0 | 10 | ~1000 | 0001 |
+| Phase 1 | 22 | ~1700 | 0002 |
+| Phase 2 | 26 | ~1100 | 0003 |
+| Phase 3 | 30 | ~800 | 0004 |
+| **Итого** | **88** | **~4600** | **4** |

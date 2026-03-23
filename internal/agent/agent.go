@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"sync/atomic"
+	"time"
 
 	"github.com/vasis/singugen/internal/claude"
 )
@@ -32,7 +33,10 @@ type Request struct {
 
 // Config configures the agent.
 type Config struct {
-	QueueSize int
+	QueueSize   int
+	IdleTimeout time.Duration            // 0 = no idle detection
+	OnIdle      func(ctx context.Context) // called when idle timer fires
+	OnShutdown  func(ctx context.Context) // called before stop
 }
 
 func (c *Config) setDefaults() {
@@ -84,12 +88,56 @@ func (a *Agent) Run(ctx context.Context) error {
 	a.state.Store(int32(StateReady))
 	a.logger.Info("agent ready")
 
+	var idleTimer *time.Timer
+	var idleCh <-chan time.Time
+
+	if a.cfg.IdleTimeout > 0 && a.cfg.OnIdle != nil {
+		idleTimer = time.NewTimer(a.cfg.IdleTimeout)
+		idleCh = idleTimer.C
+		defer idleTimer.Stop()
+	}
+
 	for {
 		select {
 		case req := <-a.queue:
+			if idleTimer != nil {
+				if !idleTimer.Stop() {
+					select {
+					case <-idleTimer.C:
+					default:
+					}
+				}
+			}
 			a.processRequest(ctx, req)
+			if idleTimer != nil {
+				idleTimer.Reset(a.cfg.IdleTimeout)
+			}
+
+		case <-idleCh:
+			if a.State() == StateReady && len(a.queue) == 0 {
+				a.state.Store(int32(StateIdle))
+				a.logger.Info("idle timeout, entering dreaming")
+				a.cfg.OnIdle(ctx)
+				a.state.Store(int32(StateReady))
+				a.logger.Info("dreaming complete")
+			}
+			if idleTimer != nil {
+				idleTimer.Reset(a.cfg.IdleTimeout)
+			}
+
 		case <-ctx.Done():
+			if idleTimer != nil {
+				idleTimer.Stop()
+			}
 			a.drain(ctx)
+			if a.cfg.OnShutdown != nil {
+				a.logger.Info("running shutdown hook")
+				shutdownCtx, shutdownCancel := context.WithTimeout(
+					context.Background(), 5*time.Minute,
+				)
+				a.cfg.OnShutdown(shutdownCtx)
+				shutdownCancel()
+			}
 			a.state.Store(int32(StateStopped))
 			a.logger.Info("agent stopped")
 			return nil
