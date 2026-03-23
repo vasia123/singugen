@@ -1,0 +1,18 @@
+services:
+  singugen:
+    container_name: singugen
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - singugen-data:/data
+      - ./configs:/etc/singugen:ro
+    environment:
+      - SINGUGEN_CONFIG=/etc/singugen/singugen.yaml
+      - SINGUGEN_TELEGRAM_TOKEN=${SINGUGEN_TELEGRAM_TOKEN}
+      - TZ=${TZ:-UTC}
+    restart: unless-stopped
+
+volumes:
+  singugen-data:
+    name: singugen-data

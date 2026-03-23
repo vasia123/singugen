@@ -1,0 +1,21 @@
+# SinguGen configuration
+# Environment variables can be used: ${VAR_NAME}
+# Env var overrides: SINGUGEN_TELEGRAM_TOKEN, SINGUGEN_LOG_LEVEL, SINGUGEN_LOG_FORMAT
+
+telegram:
+  token: "${SINGUGEN_TELEGRAM_TOKEN}"
+  allow_from: []  # empty = allow all, or list of Telegram user IDs
+
+supervisor:
+  healthcheck_interval: 10s
+  max_restarts: 5
+  restart_window: 2m
+  child_binary: "/usr/local/bin/singugen-agent"
+
+agent:
+  workspace_path: "data/workspace"
+  data_path: "data"
+
+log:
+  level: "info"    # debug, info, warn, error
+  format: "text"   # text, json
