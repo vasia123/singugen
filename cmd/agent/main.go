@@ -8,9 +8,12 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/mymmrac/telego"
+
 	"github.com/vasis/singugen/internal/agent"
 	"github.com/vasis/singugen/internal/claude"
 	"github.com/vasis/singugen/internal/config"
+	tg "github.com/vasis/singugen/internal/telegram"
 )
 
 func main() {
@@ -46,18 +49,23 @@ func main() {
 		cancel()
 	}()
 
-	// CLI test mode: if SINGUGEN_AGENT_MESSAGE is set, send it and exit.
+	// CLI test mode.
 	if msg := os.Getenv("SINGUGEN_AGENT_MESSAGE"); msg != "" {
 		runSingleMessage(ctx, sess, a, msg, logger)
 		return
 	}
 
-	// Normal mode: start session and agent run loop.
+	// Start Claude session.
 	if err := sess.Start(ctx); err != nil {
 		logger.Error("failed to start claude session", "error", err)
 		os.Exit(1)
 	}
 	defer sess.Close()
+
+	// Start Telegram bot if token is configured.
+	if cfg.Telegram.Token != "" {
+		startTelegramBot(ctx, cfg, a, sess, logger, cancel)
+	}
 
 	logger.Info("agent started, waiting for messages")
 	if err := a.Run(ctx); err != nil {
@@ -66,6 +74,44 @@ func main() {
 	}
 
 	logger.Info("agent stopped")
+}
+
+func startTelegramBot(ctx context.Context, cfg *config.Config, a *agent.Agent, sess *claude.Session, logger *slog.Logger, cancel context.CancelFunc) {
+	bot, err := telego.NewBot(cfg.Telegram.Token)
+	if err != nil {
+		logger.Error("failed to create telegram bot", "error", err)
+		os.Exit(1)
+	}
+
+	sender := tg.NewTelegoSender(ctx, bot)
+	tgBot := tg.NewBot(a, sess, sender, tg.BotConfig{
+		AllowFrom: cfg.Telegram.AllowFrom,
+	}, logger, cancel)
+
+	// Run long-polling in background.
+	go func() {
+		updates, err := bot.UpdatesViaLongPolling(ctx, nil)
+		if err != nil {
+			logger.Error("telegram long-polling failed", "error", err)
+			cancel()
+			return
+		}
+
+		logger.Info("telegram bot started")
+
+		for update := range updates {
+			if update.Message == nil {
+				continue
+			}
+			msg := update.Message
+			if msg.From == nil {
+				continue
+			}
+			tgBot.HandleText(ctx, msg.Chat.ID, msg.From.ID, msg.Text)
+		}
+
+		logger.Info("telegram bot stopped")
+	}()
 }
 
 func runSingleMessage(ctx context.Context, sess *claude.Session, a *agent.Agent, msg string, logger *slog.Logger) {
