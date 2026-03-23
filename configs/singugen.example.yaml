@@ -25,6 +25,16 @@ agent:
   dream_on_shutdown: true          # force dreaming before shutdown
   max_dream_duration: 5m           # max time for a single dream cycle
 
+self_update:
+  enabled: false                   # enable /update command
+  auto_push: false                 # push after commit
+  push_branch: "self-update"       # branch name for push
+  build_timeout: 2m                # timeout for go build
+  test_timeout: 2m                 # timeout for go test
+  protected_dirs:                  # directories agent cannot modify
+    - "cmd/singugen"
+    - "internal/supervisor"
+
 log:
   level: "info"    # debug, info, warn, error
   format: "text"   # text, json

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/vasis/singugen/internal/agent"
+	"github.com/vasis/singugen/internal/selfupdate"
 )
 
 // BotConfig holds bot configuration.
@@ -19,6 +20,7 @@ type Bot struct {
 	agent     *agent.Agent
 	session   agent.SessionStarter
 	sender    Sender
+	updater   *selfupdate.Updater
 	allowFrom map[int64]bool
 	logger    *slog.Logger
 	cancel    context.CancelFunc
@@ -41,8 +43,12 @@ func NewBot(a *agent.Agent, session agent.SessionStarter, sender Sender, cfg Bot
 	}
 }
 
+// SetUpdater configures the self-update pipeline.
+func (b *Bot) SetUpdater(u *selfupdate.Updater) {
+	b.updater = u
+}
+
 // HandleText processes an incoming text message from a user.
-// This is the entry point called by the Telegram update handler.
 func (b *Bot) HandleText(ctx context.Context, chatID int64, userID int64, text string) {
 	if !IsAuthorized(userID, b.allowFrom) {
 		b.logger.Debug("unauthorized user", "user_id", userID)
@@ -57,7 +63,14 @@ func (b *Bot) HandleText(ctx context.Context, chatID int64, userID int64, text s
 	// Check for commands.
 	if strings.HasPrefix(text, "/") {
 		command := strings.SplitN(text, " ", 2)[0]
-		if handleCommand(ctx, chatID, command, b.agent, b.session, b.sender, b.cancel) {
+		deps := CommandDeps{
+			Agent:      b.agent,
+			Session:    b.session,
+			Sender:     b.sender,
+			CancelFunc: b.cancel,
+			Updater:    b.updater,
+		}
+		if handleCommand(ctx, chatID, command, deps) {
 			return
 		}
 	}

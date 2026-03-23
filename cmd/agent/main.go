@@ -15,6 +15,7 @@ import (
 	"github.com/vasis/singugen/internal/config"
 	"github.com/vasis/singugen/internal/dreaming"
 	"github.com/vasis/singugen/internal/memory"
+	"github.com/vasis/singugen/internal/selfupdate"
 	tg "github.com/vasis/singugen/internal/telegram"
 )
 
@@ -96,9 +97,19 @@ func main() {
 	}
 	defer sess.Close()
 
+	// Create self-update pipeline if enabled.
+	var updater *selfupdate.Updater
+	if cfg.SelfUpdate.Enabled {
+		projectDir, _ := os.Getwd()
+		updater = selfupdate.NewUpdater(projectDir, selfupdate.ExecCommandRunner{}, logger)
+		updater.SetProtectedDirs(cfg.SelfUpdate.ProtectedDirs)
+		updater.SetAutoPush(cfg.SelfUpdate.AutoPush, cfg.SelfUpdate.PushBranch)
+		logger.Info("self-update enabled", "protected", cfg.SelfUpdate.ProtectedDirs)
+	}
+
 	// Start Telegram bot if token is configured.
 	if cfg.Telegram.Token != "" {
-		startTelegramBot(ctx, cfg, a, sess, logger, cancel)
+		startTelegramBot(ctx, cfg, a, sess, updater, logger, cancel)
 	}
 
 	logger.Info("agent started", "memory_path", cfg.Agent.MemoryPath, "idle_timeout", cfg.Agent.IdleTimeout)
@@ -110,7 +121,7 @@ func main() {
 	logger.Info("agent stopped")
 }
 
-func startTelegramBot(ctx context.Context, cfg *config.Config, a *agent.Agent, sess *claude.Session, logger *slog.Logger, cancel context.CancelFunc) {
+func startTelegramBot(ctx context.Context, cfg *config.Config, a *agent.Agent, sess *claude.Session, updater *selfupdate.Updater, logger *slog.Logger, cancel context.CancelFunc) {
 	bot, err := telego.NewBot(cfg.Telegram.Token)
 	if err != nil {
 		logger.Error("failed to create telegram bot", "error", err)
@@ -121,6 +132,9 @@ func startTelegramBot(ctx context.Context, cfg *config.Config, a *agent.Agent, s
 	tgBot := tg.NewBot(a, sess, sender, tg.BotConfig{
 		AllowFrom: cfg.Telegram.AllowFrom,
 	}, logger, cancel)
+	if updater != nil {
+		tgBot.SetUpdater(updater)
+	}
 
 	go func() {
 		updates, err := bot.UpdatesViaLongPolling(ctx, nil)

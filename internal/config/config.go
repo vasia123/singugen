@@ -13,7 +13,17 @@ type Config struct {
 	Telegram   TelegramConfig   `yaml:"telegram"`
 	Supervisor SupervisorConfig `yaml:"supervisor"`
 	Agent      AgentConfig      `yaml:"agent"`
+	SelfUpdate SelfUpdateConfig `yaml:"self_update"`
 	Log        LogConfig        `yaml:"log"`
+}
+
+type SelfUpdateConfig struct {
+	Enabled       bool          `yaml:"enabled"`
+	AutoPush      bool          `yaml:"auto_push"`
+	PushBranch    string        `yaml:"push_branch"`
+	BuildTimeout  time.Duration `yaml:"build_timeout"`
+	TestTimeout   time.Duration `yaml:"test_timeout"`
+	ProtectedDirs []string      `yaml:"protected_dirs"`
 }
 
 type TelegramConfig struct {
@@ -66,6 +76,13 @@ func defaults() Config {
 			IdleTimeout:      15 * time.Minute,
 			DreamOnShutdown:  true,
 			MaxDreamDuration: 5 * time.Minute,
+		},
+		SelfUpdate: SelfUpdateConfig{
+			Enabled:       false,
+			PushBranch:    "self-update",
+			BuildTimeout:  2 * time.Minute,
+			TestTimeout:   2 * time.Minute,
+			ProtectedDirs: []string{"cmd/singugen", "internal/supervisor"},
 		},
 		Log: LogConfig{
 			Level:  "info",

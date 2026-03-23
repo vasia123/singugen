@@ -87,23 +87,23 @@
 
 ---
 
-## Phase 4 — Self-Modification
+## Phase 4 — Self-Modification ✅
 
 **Цель:** Агент может дорабатывать собственный код.
 
-- [ ] Self-update pipeline (`internal/selfupdate/`)
-  - Агент вносит изменения в собственный код (workspace = свой репозиторий)
-  - `go build` + `go test` + `go vet` — валидация перед применением
-  - Если тесты прошли → сигнал supervisor на перезапуск
-  - Если тесты упали → rollback, уведомление пользователя
-  - Git: commit в feature branch, push в fork
-- [ ] Approval flow (опционально)
-  - Отправка diff в Telegram перед применением
-  - Inline кнопки: Approve / Reject / Discuss
-- [ ] Safety guardrails
-  - Supervisor неизменяем агентом (отдельный бинарник)
-  - Максимум N перезапусков за период (circuit breaker)
-  - Rollback к последнему рабочему состоянию при crash loop
+- [x] Self-update pipeline (`internal/selfupdate/`)
+  - Claude Code редактирует код (уже имеет инструменты)
+  - CommandRunner interface для тестируемости без реальных процессов
+  - `go build ./cmd/agent/` + `go vet ./...` + `go test ./...` — валидация
+  - Если тесты прошли → git commit, опционально push
+  - SIGUSR1 → supervisor перезапускает child с новым кодом
+- [x] Protected directories: cmd/singugen/ и internal/supervisor/ неизменяемы
+- [x] Telegram команды: `/update` (validate→commit→restart), `/rollback`
+- [ ] Approval flow (отправка diff + inline кнопки — будущая фаза)
+- [x] Safety guardrails
+  - Supervisor неизменяем агентом (отдельный бинарник + protected dirs)
+  - Circuit breaker: 5 перезапусков за 2 минуты
+  - git revert для rollback (сохраняет историю)
 
 **Результат:** Агент дорабатывает себя, тестирует, перезапускается.
 Supervisor гарантирует восстановление при ошибках.
@@ -250,4 +250,5 @@ Supervisor гарантирует восстановление при ошибк
 | Phase 1 | 22 | ~1700 | 0002 |
 | Phase 2 | 26 | ~1100 | 0003 |
 | Phase 3 | 30 | ~800 | 0004 |
-| **Итого** | **88** | **~4600** | **4** |
+| Phase 4 | 18 | ~700 | 0005 |
+| **Итого** | **106** | **~5300** | **5** |
