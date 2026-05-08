@@ -153,6 +153,10 @@ func startTelegramBot(ctx context.Context, cfg *config.Config, pool *spawner.Poo
 		logger.Info("telegram bot started")
 
 		for update := range updates {
+			if update.CallbackQuery != nil {
+				tgBot.HandleCallback(update.CallbackQuery.ID, update.CallbackQuery.Data)
+				continue
+			}
 			if update.Message == nil {
 				continue
 			}

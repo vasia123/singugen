@@ -73,8 +73,17 @@ type SelfUpdateConfig struct {
 }
 
 type TelegramConfig struct {
-	Token     string  `yaml:"token"`
-	AllowFrom []int64 `yaml:"allow_from"`
+	Token     string        `yaml:"token"`
+	AllowFrom []int64       `yaml:"allow_from"`
+	UserAPI   UserAPIConfig `yaml:"user_api"`
+}
+
+type UserAPIConfig struct {
+	Enabled     bool   `yaml:"enabled"`
+	APIId       int    `yaml:"api_id"`
+	APIHash     string `yaml:"api_hash"`
+	PhoneNumber string `yaml:"phone_number"`
+	SessionPath string `yaml:"session_path"`
 }
 
 type SupervisorConfig struct {
@@ -105,6 +114,11 @@ type LogConfig struct {
 
 func defaults() Config {
 	return Config{
+		Telegram: TelegramConfig{
+			UserAPI: UserAPIConfig{
+				SessionPath: "data/tg_session",
+			},
+		},
 		Supervisor: SupervisorConfig{
 			HealthCheckInterval: 10 * time.Second,
 			MaxRestarts:         5,

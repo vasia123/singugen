@@ -5,6 +5,12 @@
 telegram:
   token: "${SINGUGEN_TELEGRAM_TOKEN}"
   allow_from: []  # empty = allow all, or list of Telegram user IDs
+  user_api:
+    enabled: false                 # enable User API (MTProto) access
+    api_id: 0                      # from my.telegram.org
+    api_hash: ""                   # from my.telegram.org
+    phone_number: ""               # user's phone number
+    session_path: "data/tg_session" # session file (gitignored)
 
 supervisor:
   healthcheck_interval: 10s

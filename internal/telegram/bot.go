@@ -23,6 +23,7 @@ type Bot struct {
 	sender    Sender
 	board     *kanban.Board
 	updater   *selfupdate.Updater
+	approval  *ApprovalQueue
 	allowFrom map[int64]bool
 	logger    *slog.Logger
 	cancel    context.CancelFunc
@@ -38,6 +39,7 @@ func NewBot(pool *spawner.Pool, sender Sender, cfg BotConfig, logger *slog.Logge
 	return &Bot{
 		pool:      pool,
 		sender:    sender,
+		approval:  NewApprovalQueue(sender, logger),
 		allowFrom: allow,
 		logger:    logger,
 		cancel:    cancel,
@@ -47,6 +49,16 @@ func NewBot(pool *spawner.Pool, sender Sender, cfg BotConfig, logger *slog.Logge
 // SetUpdater configures the self-update pipeline.
 func (b *Bot) SetUpdater(u *selfupdate.Updater) {
 	b.updater = u
+}
+
+// Approval returns the approval queue.
+func (b *Bot) Approval() *ApprovalQueue {
+	return b.approval
+}
+
+// HandleCallback processes an inline button callback.
+func (b *Bot) HandleCallback(callbackID, data string) {
+	b.approval.HandleCallback(callbackID, data)
 }
 
 // SetBoard configures the kanban board.

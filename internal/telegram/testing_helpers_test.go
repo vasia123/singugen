@@ -56,6 +56,14 @@ func (f *fakeSender) DeleteMessage(chatID int64, messageID int) error {
 	return nil
 }
 
+func (f *fakeSender) SendMessageWithButtons(chatID int64, text string, buttons [][]InlineButton) (int, error) {
+	return f.SendMessage(chatID, text)
+}
+
+func (f *fakeSender) AnswerCallback(_ string, _ string) error {
+	return nil
+}
+
 func (f *fakeSender) Sent() []sentMsg {
 	f.mu.Lock()
 	defer f.mu.Unlock()
